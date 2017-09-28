@@ -5,6 +5,7 @@ description = "Derives quickcheck traits"
 keywords = ["quickcheck", "testing", "derive", "macro"]
 license = "MIT/Apache-2.0"
 name = "quickcheck_derive"
+readme = "README.md"
 version = "0.1.0"
 
 [dependencies]
