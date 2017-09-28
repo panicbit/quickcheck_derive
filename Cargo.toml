@@ -1,5 +1,6 @@
 [package]
 authors = ["panicbit <panicbit.dev@gmail.com>"]
+license = "MIT/Apache-2.0"
 name = "quickcheck_derive"
 version = "0.1.0"
 
