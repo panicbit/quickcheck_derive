@@ -1,99 +1,111 @@
-#![allow(warnings)]
-#![recursion_limit="128"]
-#[macro_use]
-extern crate quote;
+extern crate quickcheck;
 extern crate syn;
-extern crate proc_macro;
+#[macro_use]
+extern crate synstructure;
+extern crate proc_macro2;
 
-use quote::Tokens;
-use proc_macro::TokenStream;
-use syn::{Ident,Body,Generics};
+use proc_macro2::TokenStream;
 
-#[proc_macro_derive(Arbitrary)]
-pub fn arbitrary(input: TokenStream) -> TokenStream {
-    let input = input.to_string();
-    let mut input = syn::parse_derive_input(&input).unwrap();
+decl_derive!([Arbitrary] => arbitrary_derive);
 
-    add_type_bounds(&mut input.generics, "::quickcheck::Arbitrary");
-    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+fn arbitrary_derive(s: synstructure::Structure) -> TokenStream {
+    if s.variants().len() == 1 { // struct
+        let con = s.variants()[0].construct(|_, _| quote! { Arbitrary::arbitrary(g) });
+        s.gen_impl(quote! {
+            extern crate quickcheck;
 
-    let name = input.ident;
-    let arbitrary_body = arbitrary_body(&name, &input.body);
-    let shrink_body = shrink_body(&name, &input.body);
+            use quickcheck::{Arbitrary, Gen};
 
-    let output = quote! {
-        impl #impl_generics ::quickcheck::Arbitrary for #name #ty_generics #where_clause {
-            fn arbitrary<G: ::quickcheck::Gen>(gen: &mut G) -> Self {
-                #arbitrary_body
-            }
-
-            fn shrink(&self) -> Box<Iterator<Item=Self>> {
-                #shrink_body
-            }
-        }
-    };
-
-    output.parse().unwrap()
-}
-
-fn arbitrary_body(name: &Ident, body: &Body) -> Tokens {
-    use syn::VariantData::*;
-    match *body {
-        Body::Enum(..) => panic!("derive(Arbitrary) only supports structs"),
-        Body::Struct(Struct(ref fields)) => {
-            let field = fields.iter().map(|field| &field.ident);
-            quote! {
-                #name {
-                    #(#field: ::quickcheck::Arbitrary::arbitrary(gen)),*
+            gen impl Arbitrary for @Self {
+                fn arbitrary<G: Gen>(g: &mut G) -> Self {
+                    #con
                 }
             }
-        },
-        Body::Struct(Tuple(ref fields)) => {
-            let field = fields.iter().map(|field| &field.ident);
-            quote! {
-                #name (
-                    #(#field ::quickcheck::Arbitrary::arbitrary(gen)),*
-                )
+        })
+    } else { // enum
+        let mut variant_tokens = TokenStream::new();
+
+        for (count, variant) in s.variants().iter().enumerate() {
+            let constructor = variant.construct(|_, _| quote! { Arbitrary::arbitrary(g) });
+            variant_tokens.extend(quote! { #count => #constructor, });
+        }
+        let count = s.variants().len();
+        s.gen_impl(quote! {
+            extern crate quickcheck;
+
+            use quickcheck::{Arbitrary, Gen};
+
+            gen impl Arbitrary for @Self {
+                fn arbitrary<G: Gen>(g: &mut G) -> Self {
+                    match g.gen_range(0, #count) {
+                        #variant_tokens
+                        _ => unreachable!()
+                    }
+                }
             }
-        },
-        Body::Struct(Unit) => quote! {
-            drop(gen);
-            #name
+        })
+    }
+}
+
+#[test]
+fn test_arbitrary_struct() {
+    test_derive!{
+        arbitrary_derive {
+            #[derive(Clone)]
+            struct ArbitraryTest(u8, bool);
+        }
+        expands to {
+            #[allow(non_upper_case_globals)]
+            const _DERIVE_Arbitrary_FOR_ArbitraryTest : () = {
+                extern crate quickcheck;
+
+                use quickcheck::{Arbitrary, Gen};
+
+                impl Arbitrary for ArbitraryTest {
+                    fn arbitrary<G: Gen>(g: & mut G) -> Self {
+                        ArbitraryTest(Arbitrary::arbitrary(g),
+                                      Arbitrary::arbitrary(g), )
+                    }
+                }
+            };
         }
     }
 }
 
-fn shrink_body(name: &Ident, body: &Body) -> Tokens {
-    use syn::VariantData::*;
-    match *body {
-        Body::Enum(..) => panic!("derive(Arbitrary) only supports structs"),
-        Body::Struct(Struct(ref fields)) => {
-            let field = &fields.iter().map(|field| &field.ident).collect::<Vec<_>>();
-            quote! {
-                let val = (#(self.#field.clone()),*);
-
-                Box::new(val.shrink().map(|(#(#field),*)| #name { #(#field),* }))
+#[test]
+fn test_arbitrary_enum() {
+    test_derive!{
+        arbitrary_derive {
+            #[derive(Clone)]
+            enum ArbitraryTest {
+                A,
+                B(usize, u32),
+                C{ b: bool, d: (u16, u16) }
             }
-        },
-        Body::Struct(Tuple(ref fields)) => {
-            let field = &(0..fields.len()).map(|i| format!("val_{}", i)).map(quote::Ident::new).collect::<Vec<_>>();
-            quote! {
-                let #name(#(#field),*) = self.clone();
-                let val = (#(#field),*);
-
-                Box::new(val.shrink().map(|(#(#field),*)| #name(#(#field),*)))
-            }
-        },
-        Body::Struct(Unit) => quote! {
-            ::quickcheck::empty_shrinker()
         }
-    }
-}
+        expands to {
+            #[allow(non_upper_case_globals)]
+            const _DERIVE_Arbitrary_FOR_ArbitraryTest : () = {
+                extern crate quickcheck;
 
-fn add_type_bounds(generics: &mut Generics, bound: &str) {
-    let bound = syn::parse_ty_param_bound(bound).unwrap();
+                use quickcheck::{Arbitrary, Gen};
 
-    for param in &mut generics.ty_params {
-        param.bounds.push(bound.clone());
+                impl Arbitrary for ArbitraryTest {
+                    fn arbitrary<G: Gen>(g: & mut G) -> Self {
+                        match g.gen_range(0, 3usize) {
+                            0usize => ArbitraryTest::A,
+                            1usize => ArbitraryTest::B(Arbitrary::arbitrary(g),
+                                                       Arbitrary::arbitrary(g),
+                                                      ),
+                            2usize => ArbitraryTest::C {
+                                    b : Arbitrary::arbitrary(g),
+                                    d : Arbitrary::arbitrary(g),
+                                },
+                            _ => unreachable!()
+                        }
+                    }
+                }
+            };
+        }
     }
 }
