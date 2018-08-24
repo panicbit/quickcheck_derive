@@ -11,6 +11,7 @@ decl_derive!([Arbitrary] => arbitrary_derive);
 fn arbitrary_derive(s: synstructure::Structure) -> TokenStream {
     if s.variants().len() == 1 { // struct
         let con = s.variants()[0].construct(|_, _| quote! { Arbitrary::arbitrary(g) });
+
         s.gen_impl(quote! {
             extern crate quickcheck;
 
@@ -29,7 +30,9 @@ fn arbitrary_derive(s: synstructure::Structure) -> TokenStream {
             let constructor = variant.construct(|_, _| quote! { Arbitrary::arbitrary(g) });
             variant_tokens.extend(quote! { #count => #constructor, });
         }
+
         let count = s.variants().len();
+
         s.gen_impl(quote! {
             extern crate quickcheck;
 
