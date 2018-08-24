@@ -1,7 +1,8 @@
-[![Travis (.org)](https://img.shields.io/travis/panicbit/quickcheck_derive.svg)](https://travis-ci.org/panicbit/quickcheck_derive)
-[![Crates.io](https://img.shields.io/crates/v/rustc-serialize.svg)](https://crates.io/crates/quickcheck_derive)
-
 # quickcheck_derive
+
+<!-- badges -->
+[![Travis (.org)](https://img.shields.io/travis/panicbit/quickcheck_derive.svg)](https://travis-ci.org/panicbit/quickcheck_derive)
+[![Crates.io](https://img.shields.io/crates/v/quickcheck_derive.svg)](https://crates.io/crates/quickcheck_derive)
 
 This crate adds a derive for the `Arbitrary` trait from the `quickcheck` crate.
 
