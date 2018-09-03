@@ -1,4 +1,5 @@
 extern crate quickcheck;
+#[macro_use]
 extern crate syn;
 #[macro_use]
 extern crate synstructure;
@@ -11,7 +12,7 @@ decl_derive!([Arbitrary] => arbitrary_derive);
 fn arbitrary_derive(s: synstructure::Structure) -> TokenStream {
     let (g, body) = match s.variants().len() {
         // zero-variant enum
-        0 => (quote!(_g), quote!(unreachable!())),
+        0 => panic!("Cannot derive `Arbitrary` for an enum with no variants."),
 
         // struct or single-variant enum
         1 => {
@@ -110,27 +111,14 @@ fn test_arbitrary_struct() {
 }
 
 #[test]
+#[should_panic(expected = "Cannot derive `Arbitrary` for an enum with no variants.")]
 fn test_arbitrary_zero_variant_enum() {
-    test_derive! {
-        arbitrary_derive {
-            #[derive(Clone)]
-            enum ArbitraryTest {}
-        }
-        expands to {
-            #[allow(non_upper_case_globals)]
-            const _DERIVE_Arbitrary_FOR_ArbitraryTest: () = {
-                extern crate quickcheck;
+    let input = parse_quote! {
+        #[derive(Clone)]
+        enum ArbitraryTest {}
+    };
 
-                use quickcheck::{Arbitrary, Gen};
-
-                impl Arbitrary for ArbitraryTest {
-                    fn arbitrary<G: Gen>(_g: &mut G) -> Self {
-                        unreachable!()
-                    }
-                }
-            };
-        }
-    }
+    arbitrary_derive(synstructure::Structure::new(&input));
 }
 
 #[test]
