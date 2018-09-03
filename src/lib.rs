@@ -9,63 +9,97 @@ use proc_macro2::TokenStream;
 decl_derive!([Arbitrary] => arbitrary_derive);
 
 fn arbitrary_derive(s: synstructure::Structure) -> TokenStream {
-    if s.variants().len() == 1 { // struct
-        let con = s.variants()[0].construct(|_, _| quote! { Arbitrary::arbitrary(g) });
+    let (g, body) = match s.variants().len() {
+        // zero-variant enum
+        0 => (quote!(_g), quote!(unreachable!())),
 
-        s.gen_impl(quote! {
-            extern crate quickcheck;
+        // struct or single-variant enum
+        1 => {
+            let body = s.variants()[0].construct(|_, _| quote! { Arbitrary::arbitrary(g) });
+            let g = if let syn::Fields::Unit = s.variants()[0].ast().fields {
+                quote!(_g)
+            } else {
+                quote!(g)
+            };
 
-            use quickcheck::{Arbitrary, Gen};
+            (g, body)
+        },
 
-            gen impl Arbitrary for @Self {
-                fn arbitrary<G: Gen>(g: &mut G) -> Self {
-                    #con
-                }
+        // multiple-variant enum
+        _ => {
+            let mut variant_tokens = TokenStream::new();
+
+            for (count, variant) in s.variants().iter().enumerate() {
+                let constructor = variant.construct(|_, _| quote! { Arbitrary::arbitrary(g) });
+                variant_tokens.extend(quote! { #count => #constructor, });
             }
-        })
-    } else { // enum
-        let mut variant_tokens = TokenStream::new();
 
-        for (count, variant) in s.variants().iter().enumerate() {
-            let constructor = variant.construct(|_, _| quote! { Arbitrary::arbitrary(g) });
-            variant_tokens.extend(quote! { #count => #constructor, });
+            let count = s.variants().len();
+
+            let body = quote! {
+                match g.gen_range(0, #count) {
+                    #variant_tokens
+                    _ => unreachable!()
+                }
+            };
+
+            (quote!(g), body)
+        },
+    };
+
+    s.gen_impl(quote! {
+        extern crate quickcheck;
+
+        use quickcheck::{Arbitrary, Gen};
+
+        gen impl Arbitrary for @Self {
+            fn arbitrary<G: Gen>(#g: &mut G) -> Self {
+                #body
+            }
         }
+    })
+}
 
-        let count = s.variants().len();
+#[test]
+fn test_arbitrary_unit_struct() {
+    test_derive! {
+        arbitrary_derive {
+            #[derive(Clone)]
+            struct ArbitraryTest;
+        }
+        expands to {
+            #[allow(non_upper_case_globals)]
+            const _DERIVE_Arbitrary_FOR_ArbitraryTest: () = {
+                extern crate quickcheck;
 
-        s.gen_impl(quote! {
-            extern crate quickcheck;
+                use quickcheck::{Arbitrary, Gen};
 
-            use quickcheck::{Arbitrary, Gen};
-
-            gen impl Arbitrary for @Self {
-                fn arbitrary<G: Gen>(g: &mut G) -> Self {
-                    match g.gen_range(0, #count) {
-                        #variant_tokens
-                        _ => unreachable!()
+                impl Arbitrary for ArbitraryTest {
+                    fn arbitrary<G: Gen>(_g: &mut G) -> Self {
+                        ArbitraryTest
                     }
                 }
-            }
-        })
+            };
+        }
     }
 }
 
 #[test]
 fn test_arbitrary_struct() {
-    test_derive!{
+    test_derive! {
         arbitrary_derive {
             #[derive(Clone)]
             struct ArbitraryTest(u8, bool);
         }
         expands to {
             #[allow(non_upper_case_globals)]
-            const _DERIVE_Arbitrary_FOR_ArbitraryTest : () = {
+            const _DERIVE_Arbitrary_FOR_ArbitraryTest: () = {
                 extern crate quickcheck;
 
                 use quickcheck::{Arbitrary, Gen};
 
                 impl Arbitrary for ArbitraryTest {
-                    fn arbitrary<G: Gen>(g: & mut G) -> Self {
+                    fn arbitrary<G: Gen>(g: &mut G) -> Self {
                         ArbitraryTest(Arbitrary::arbitrary(g),
                                       Arbitrary::arbitrary(g), )
                     }
@@ -76,8 +110,32 @@ fn test_arbitrary_struct() {
 }
 
 #[test]
+fn test_arbitrary_zero_variant_enum() {
+    test_derive! {
+        arbitrary_derive {
+            #[derive(Clone)]
+            enum ArbitraryTest {}
+        }
+        expands to {
+            #[allow(non_upper_case_globals)]
+            const _DERIVE_Arbitrary_FOR_ArbitraryTest: () = {
+                extern crate quickcheck;
+
+                use quickcheck::{Arbitrary, Gen};
+
+                impl Arbitrary for ArbitraryTest {
+                    fn arbitrary<G: Gen>(_g: &mut G) -> Self {
+                        unreachable!()
+                    }
+                }
+            };
+        }
+    }
+}
+
+#[test]
 fn test_arbitrary_enum() {
-    test_derive!{
+    test_derive! {
         arbitrary_derive {
             #[derive(Clone)]
             enum ArbitraryTest {
@@ -88,13 +146,13 @@ fn test_arbitrary_enum() {
         }
         expands to {
             #[allow(non_upper_case_globals)]
-            const _DERIVE_Arbitrary_FOR_ArbitraryTest : () = {
+            const _DERIVE_Arbitrary_FOR_ArbitraryTest: () = {
                 extern crate quickcheck;
 
                 use quickcheck::{Arbitrary, Gen};
 
                 impl Arbitrary for ArbitraryTest {
-                    fn arbitrary<G: Gen>(g: & mut G) -> Self {
+                    fn arbitrary<G: Gen>(g: &mut G) -> Self {
                         match g.gen_range(0, 3usize) {
                             0usize => ArbitraryTest::A,
                             1usize => ArbitraryTest::B(Arbitrary::arbitrary(g),
