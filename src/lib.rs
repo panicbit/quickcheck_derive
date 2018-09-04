@@ -1,7 +1,7 @@
 extern crate proc_macro2;
 #[cfg(test)]
 extern crate quickcheck;
-#[macro_use]
+#[cfg_attr(test, macro_use)]
 extern crate syn;
 #[macro_use]
 extern crate synstructure;
