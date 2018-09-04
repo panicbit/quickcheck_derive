@@ -6,6 +6,8 @@
 
 This crate adds a derive for the `Arbitrary` trait from the `quickcheck` crate.
 
+Minimum supported Rust version is 1.15.
+
 # Usage
 
 ```rust

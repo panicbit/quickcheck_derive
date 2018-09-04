@@ -17,7 +17,7 @@ fn arbitrary_derive(s: synstructure::Structure) -> TokenStream {
         // struct or single-variant enum
         1 => {
             let body = s.variants()[0].construct(|_, _| quote! { Arbitrary::arbitrary(g) });
-            let g = if let syn::Fields::Unit = s.variants()[0].ast().fields {
+            let g = if let syn::Fields::Unit = *s.variants()[0].ast().fields {
                 quote!(_g)
             } else {
                 quote!(g)
