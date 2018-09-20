@@ -15,7 +15,8 @@ syn = "0.14"
 synstructure = "0.9"
 
 [dev-dependencies]
-quickcheck = "0.4.1"
+quickcheck = "0.7.1"
+rand = "0.5.5"
 
 [lib]
 proc_macro = true

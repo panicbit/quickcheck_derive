@@ -1,6 +1,8 @@
 extern crate proc_macro2;
 #[cfg(test)]
 extern crate quickcheck;
+#[cfg(test)]
+extern crate rand;
 #[cfg_attr(test, macro_use)]
 extern crate syn;
 #[macro_use]
@@ -51,8 +53,12 @@ fn arbitrary_derive(s: synstructure::Structure) -> TokenStream {
 
     s.gen_impl(quote! {
         extern crate quickcheck;
+        extern crate rand;
 
         use quickcheck::{Arbitrary, Gen};
+
+        #[allow(unused_imports)]
+        use rand::Rng;
 
         gen impl Arbitrary for @Self {
             fn arbitrary<G: Gen>(#g: &mut G) -> Self {
@@ -73,8 +79,12 @@ fn test_arbitrary_unit_struct() {
             #[allow(non_upper_case_globals)]
             const _DERIVE_Arbitrary_FOR_ArbitraryTest: () = {
                 extern crate quickcheck;
+                extern crate rand;
 
                 use quickcheck::{Arbitrary, Gen};
+
+                #[allow(unused_imports)]
+                use rand::Rng;
 
                 impl Arbitrary for ArbitraryTest {
                     fn arbitrary<G: Gen>(_g: &mut G) -> Self {
@@ -97,8 +107,12 @@ fn test_arbitrary_struct() {
             #[allow(non_upper_case_globals)]
             const _DERIVE_Arbitrary_FOR_ArbitraryTest: () = {
                 extern crate quickcheck;
+                extern crate rand;
 
                 use quickcheck::{Arbitrary, Gen};
+
+                #[allow(unused_imports)]
+                use rand::Rng;
 
                 impl Arbitrary for ArbitraryTest {
                     fn arbitrary<G: Gen>(g: &mut G) -> Self {
@@ -137,8 +151,12 @@ fn test_arbitrary_enum() {
             #[allow(non_upper_case_globals)]
             const _DERIVE_Arbitrary_FOR_ArbitraryTest: () = {
                 extern crate quickcheck;
+                extern crate rand;
 
                 use quickcheck::{Arbitrary, Gen};
+
+                #[allow(unused_imports)]
+                use rand::Rng;
 
                 impl Arbitrary for ArbitraryTest {
                     fn arbitrary<G: Gen>(g: &mut G) -> Self {
