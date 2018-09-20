@@ -6,12 +6,17 @@
 
 This crate adds a derive for the `Arbitrary` trait from the `quickcheck` crate.
 
+# Requirements
+You need the following dependencies in your `Cargo.toml`:
+
+- `quickcheck` >= 0.7
+- `rand`
+
 # Usage
 
 ```rust
 #[macro_use]
 extern crate quickcheck_derive;
-extern crate quickcheck;
 
 #[derive(Arbitrary,Clone)]
 struct Data {
