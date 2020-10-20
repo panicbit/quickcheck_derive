@@ -1,3 +1,7 @@
+# NOTICE
+
+**Before using this crate, please evaluate [quickcheck's official derive crate](https://crates.io/crates/quickcheck_macros).**
+
 # quickcheck_derive
 
 <!-- badges -->
